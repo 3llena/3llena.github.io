@@ -28,6 +28,16 @@
         color: inherit;
         text-decoration: inherit;
       }
+      
+      video {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        min-width: 100%;
+        min-height: 100%;
+        filter: opacity(7%);
+        pointer-events: none;
+      }
 
       html {
         background: #fff;
@@ -329,6 +339,9 @@
       }
     </style>
   </head>
+  <video autoplay muted loop id="background_video">
+    <source src="kyoto.mp4" type="video/mp4">
+  </video>
   <body>
     <a href="/" class="home" alt="home" aria-label="blog home">
       <img src="https://avatars.githubusercontent.com/u/30310224" width="128" height="128">
