@@ -5,14 +5,14 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#fff" />
-    <title>Sample article title</title>
-    <meta property="og:title" content="Sample article title" />
+    <title>Virtual Address Translation in the 64-bit NT Kernel</title>
+    <meta property="og:title" content="Virtual Address Translation in the 64-bit NT Kernel" />
     <meta property="og:locale" content="en_US" />
-    <meta name="description" content="Sample article description!" />
-    <meta property="og:description" content="Sample article description!" />
-    <link rel="canonical" href="https://3llena-arch.github.io/sample_article.html" />
+    <meta name="description" content="Why translation and virtual memory implementation matters." />
+    <meta property="og:description" content="Why translation and virtual memory implementation matters." />
+    <link rel="canonical" href="https://3llena-arch.github.io/va_translation.html" />
     <link rel="icon" type="image/x-icon" href="https://avatars.githubusercontent.com/u/30310224">
-    <meta property="og:url" content="https://3llena-arch.github.io/sample_article.html" />
+    <meta property="og:url" content="https://3llena-arch.github.io/va_translation.html" />
     <meta property="og:site_name" content="3llena-arch" />
     <meta property="og:type" content="article" />
     <style>
@@ -133,7 +133,7 @@
       article {
         padding: 24px 0 1em 0;
         margin: 0 24px 24px 24px;
-        max-width: 760px;
+        max-width: 800px;
       }
 
       main {
@@ -258,6 +258,11 @@
         width: calc(100% + 48px);
       }
 
+      p {
+        text-align: justify;
+        text-justify: inter-character;
+      }
+
       .lineno {
         color: var(--bg-1);
         position: absolute;
@@ -347,18 +352,149 @@
       <img src="https://avatars.githubusercontent.com/u/30310224" width="128" height="128">
     </a>
     <article itemscope itemtype="http://schema.org/BlogPosting" aria-label="Content">
-      <h1 itemprop="name headline">Sample article title</h1>
-      <time datetime="2021-05-24T00:00:00+00:00" itemprop="datePublished"> May 24, 2021</time>
+      <h1 itemprop="name headline">Virtual Address Translation in the 64-bit NT Kernel</h1>
+      <time datetime="2021-07-25T00:00:00+00:00" itemprop="datePublished"> July 25, 2022</time>
       <main itemprop="articleBody">
-        <p>Hi! Welcome to my super epic blog where I will talk about Larry and why he is so great. Heres code highlighting thing.</p>
-        <pre>
-<code class="language-cpp">struct my_struct_t {
-   std::int32_t m_index;
-   std::float_t m_index;
-};</code>
-        </pre>
-        <p>Woah thats so cool! Anyways, I hate niggers!</p>
-      </main>
+        <p>Translating kernel virtual addresses allows us to operate on the physical memory directly. Not performing operations on virtual memory allows us to circumvent</p>
+	<pre><p> (1) page protection
+ (2) memory inspection
+ (3) session spacing</p></pre>
+</p></pre>
+      <p>Virtual memory page protection can be set by VirtualProtect and VirtualProtectEx. The extent to which we can operate on the virtual memory of a page is determined by its page protection. Some protection flags include</p>
+      <p><pre> (1) PAGE_NOACCESS            0x00000001
+ (2) PAGE_READONLY            0x00000002
+ (3) PAGE_READWRITE           0x00000004
+ (4) PAGE_EXECUTE_READWRITE   0x00000040</pre></p>
+      <p>Execution of virtual memory is also marshalled by the NX bit. Memory inspection is fairly trivial. By registering callbacks on documented APIs, a minifilter can effectively determine if and where virtual memory operations are performed.</p>
+      <p>Finally, session space memory between kernel and user mode, processes and session drivers cannot be read or written from outside their session without running into a bugcheck.</p>
+      <p>Translating to physical memory grants access to the physical memory buffer and ignores session boundaries as they are not directed by the memory management unit implementation in the NT kernel.</p>
+      <p>(((Microsoft))) provides some routines via kernel export to operate on physical memory through documented APIs. Nonexhaustive list includes</p>
+      <p><pre> (1) MmGetPhysicalAddress        ORD: 0x00000522
+ (2) MmGetPhysicalMemoryRanges   ORD: 0x00000523
+ (3) MmMapIoSpace                ORD: 0x00000538
+ (4) MmCopyMemory                ORD: 0x0000050e</pre></p>
+      <p>MmGetPhysicalAddress and MmGetPhysicalMemoryRanges are both limited to the virtual memory space of the process in which the calling thread operates. Both routines retrieve the page table entry from the process directory base. In the NT kernel, processes are represented by the EPROCESS struct. Internally, EPROCESS shares base address with a KPROCESS struct. Both are publicly available in symbols.</p>
+      <p>To translate virtual addresses within the context of kernel processes, the directory table base is retrieved from DirectoryTableBase. If a kernel thread executing in process A wishes to perform physical memory operations on memory in the address space represented by the directory table base of process B, the thread would have to first attach to the process it wishes to operate on in order to retrieve the correct directory table base.</p>
+      <p>Attaching via KeStackAttachProcess exposes the thread object represented by an ETHREAD and KTHREAD struct to the process it attaches to. By exposing our kernel thread to the process, we expose the thread context, meaning the process to which our thread is attached can query the current instruction pointer and find our code in memory. MmMapIoSpace and MmCopyMemory both take physical addresses and are more or less redundant if the public API does not allow us to fetch translated addresses without first exposing ourselves.</p>
+      <p>By understanding the virtual memory layout and how it is implemented in the NT kernel, we can correct the shortcomings of the documented APIs. Only 48 of the 64 address bits are used. Bits 48 through 63 must be a copy of bit 47, splitting the virtual address space into a higher and lower half. On 64-bit NT, or 32-bit NT with address extension, pages are 4096 bytes large. The layout of virtual memory is largely determined by the processor manufacturer implementation, not the operating system. Each address range represents a table of 512 page table entries. In the AMD64 implementation, the following ranges apply</p>
+      <p><pre> (1) page directory pointer   BITS: 47-39   BYTES: 0x1000000000000
+ (2) page directory           BITS: 38-30   BYTES:    0x8000000000
+ (3) page table               BITS: 29-21   BYTES:      0x40000000
+ (4) page table entry         BITS: 20-12   BYTES:        0x200000
+ (5) page offset              BITS:  11-0   BYTES:          0x1000</pre></p>
+      <p>With some basic understanding of the virtual address layout on AMD64, we can try our hands at extracting the page table entry table addresses from a virtual address. For this demonstration, we ignore the sign extend bit range.</p>
+      <p><pre>ADDRESS: 0x000007fefc831010
+BINARY: 000001111 111111011 111100100 000110001 000000010000
+
+ (1) page directory pointer   BITS: 000001111   ADDR: 0x0000000f
+ (2) page directory           BITS: 111111011   ADDR: 0x000001fb
+ (3) page table               BITS: 111100100   ADDR: 0x000001e4
+ (4) page table entry         BITS: 000110001   ADDR: 0x00000031
+ (5) page offset              BITS: 000010000   ADDR: 0x00000010</pre></p>
+      <p>We understand how to dissect virtual addresses. Let us now see how to interpret page table entries. The NT memory management unit describes the page table entry layout.</p>
+            <p><pre> (1) no execute                   BITS:  1
+ (2) software working set index   BITS: 11
+ (3) reserved                     BITS: 12
+ (4) page frame number            BITS: 28
+ (5) reserved                     BITS:  1
+ (6) prototype pte                BITS:  1
+ (7) copy on write                BITS:  1
+ (8) global                       BITS:  1
+ (9) large page                   BITS:  1
+(10) dirty                        BITS:  1
+(11) accessed                     BITS:  1
+(12) cache disabled               BITS:  1
+(13) write through                BITS:  1
+(14) owner                        BITS:  1
+(15) write                        BITS:  1
+(16) valid                        BITS:  1 </pre></p>
+      <p>We can programmatically implement what we have learnt so far. First we extract the bit ranges from the virtual address. This is fairly simple. Bear with me.</p>
+      <p><pre>auto addr{ ptr< std::ptrdiff_t >( address ) };
+if ( !addr )
+   return 0;
+         
+const std::ptrdiff_t page[ ] = {
+   ( addr << 0x10 ) >> 0x37,
+   ( addr << 0x19 ) >> 0x37,
+   ( addr << 0x22 ) >> 0x37,
+   ( addr << 0x2b ) >> 0x37,
+   ( addr << 0x34 ) >> 0x34
+};
+
+enum id_t : std::uint8_t { 
+   dir_ptr, // page directory pointer
+   dir,     // page directory
+   tab_ptr, // page table
+   tab,     // page table entry
+   ofs      // page offset
+};</pre></p>
+<p>It was previously mentioned that the kernel export MmGetPhysicalAddress retrieved the DirectoryTableBase from the KPROCESS struct of the desired process whose address space we wished to operate on. Control registers are processor registers which control the behaviour of the CPU.</p>
+<p>In NT, the third control register holds the directory table base for the process of the executing thread to retrieve the base address of the page directory pointer table. We will have to read the register via intrinsic or virtual memory. Reading the intrinsic is only fruitful if we share the corresponding address space. We must first retreive the pointer to the EPROCESS structure of the desired process. This is covered in a separate post.</p>
+<p><pre>auto dir_base{ process->m_directory_table_base };
+auto usr_base{ process->m_user_directory_table_base };
+
+return dir_base ? dir_base : usr_base;</pre></p>
+<p>When we extract the bit ranges from a virtual address, the ranges tell the offset in the page table entry tables from the front. If we determine the base address of the largest page table entry table, the page directory pointer table. Each table holds 512 64-bit addresses to physical memory. The bit ranges determine the which index the 64-bit address is at, and the cr3 mirrors the base address of the page directory pointer table.</p>
+<p>The low twelve bits of the cr3 describe the attributes of the page table address. Bits 36-12 hold the address to the page directory pointer table. It is not so important that we do not filter the high reserved bits as described in the AMD64 architecture. Because we ignore the attributes, we mask off the last 4 bits.</p>
+<pre><p>auto cr3{ get_cr3( process ) & 0xfffffffffffffff0 };
+if ( !cr3 )
+   return 0;</p></pre>
+<p>Now it is only a matter of reading the page directory pointer table and walk down the ladder. Similarly to the cr3 layout, the format of 64-bit table entries retains the table attributes in the low 12 bits. We mask and ignore them.</p>
+<pre><p>const std::ptrdiff_t data[ ] = {
+   read< phys, std::ptrdiff_t >( cr3 + 8 * page[ dir_ptr ] ),
+   read< phys, std::ptrdiff_t >( ( data[ 0 ] & 0xffffff000 ) + 8 * page[ dir ] ),
+   read< phys, std::ptrdiff_t >( ( data[ 1 ] & 0xffffff000 ) + 8 * page[ tab_ptr ] ),
+   read< phys, std::ptrdiff_t >( ( data[ 2 ] & 0xffffff000 ) + 8 * page[ tab ] )
+};</p></pre>
+<p>Finally, we examine the page size bit. If the page size bit is garbage, the page table entry references a lesser page table. We read it, mask bits from our va and return.</p>
+<pre><p>if ( data[ 1 ] & 0x80 ) return ( data[ 1 ] & 0xfffffc0000000 ) + ( addr & 0x3fffffffll );
+if ( data[ 2 ] & 0x80 ) return ( data[ 2 ] & 0x0000ffffff000 ) + ( addr & 0x001fffffll );
+return ( data[ 3 ] & 0x0000ffffff000 ) + page[ ofs ];</p></pre>
+<p>The final method looks something like this. I also recommend reading some of the resources below if my explanation was unclear at any point.</p>
+<a href="https://www.amd.com/system/files/TechDocs/24592.pdf">[Application Programming]</a>        
+<a href="https://www.amd.com/system/files/TechDocs/24593.pdf">[System Programming]</a> 
+<a href="https://www.amd.com/system/files/TechDocs/24594.pdf">[System Instructions]</a><br>
+<pre><p>[[ nodiscard ]]
+const std::ptrdiff_t to_phys(
+   const std::ptrdiff_t process,
+   const auto address
+) {
+   auto addr{ ptr< std::ptrdiff_t >( address ) };
+   if ( !addr )
+      return 0;
+
+   const std::ptrdiff_t page[ ] = {
+      ( addr << 0x10 ) >> 0x37,
+      ( addr << 0x19 ) >> 0x37,
+      ( addr << 0x22 ) >> 0x37,
+      ( addr << 0x2b ) >> 0x37,
+      ( addr << 0x34 ) >> 0x34
+   };
+
+   enum id_t : std::uint8_t { 
+      dir_ptr, // page directory pointer
+      dir,     // page directory
+      tab_ptr, // page table
+      tab,     // page table entry
+      ofs      // page offset
+   };
+
+   auto cr3{ get_cr3( process ) & 0xfffffffffffffff0 };
+   if ( !cr3 )
+      return 0;
+
+   const std::ptrdiff_t data[ ] = {
+      read< phys, std::ptrdiff_t >( cr3 + 8 * page[ dir_ptr ] ),
+      read< phys, std::ptrdiff_t >( ( data[ 0 ] & 0xffffff000 ) + 8 * page[ dir ] ),
+      read< phys, std::ptrdiff_t >( ( data[ 1 ] & 0xffffff000 ) + 8 * page[ tab_ptr ] ),
+      read< phys, std::ptrdiff_t >( ( data[ 2 ] & 0xffffff000 ) + 8 * page[ tab ] )
+   };
+
+   if ( data[ 1 ] & 0x80 ) return ( data[ 1 ] & 0xfffffc0000000 ) + ( addr & 0x3fffffffll );
+   if ( data[ 2 ] & 0x80 ) return ( data[ 2 ] & 0x0000ffffff000 ) + ( addr & 0x001fffffll );
+   return ( data[ 3 ] & 0x0000ffffff000 ) + page[ ofs ];
+}</p></pre>
+</main>
       <a href="/" class="back small mono">BACK TO HOME</a>
     </article>
   </body>
