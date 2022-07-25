@@ -450,10 +450,7 @@ if ( !cr3 )
 <pre><p>if ( data[ 1 ] & 0x80 ) return ( data[ 1 ] & 0xfffffc0000000 ) + ( addr & 0x3fffffffll );
 if ( data[ 2 ] & 0x80 ) return ( data[ 2 ] & 0x0000ffffff000 ) + ( addr & 0x001fffffll );
 return ( data[ 3 ] & 0x0000ffffff000 ) + page[ ofs ];</p></pre>
-<p>The final method looks something like this. I also recommend reading some of the resources below if my explanation was unclear at any point.</p>
-<a href="https://www.amd.com/system/files/TechDocs/24592.pdf">[Application Programming]</a>        
-<a href="https://www.amd.com/system/files/TechDocs/24593.pdf">[System Programming]</a> 
-<a href="https://www.amd.com/system/files/TechDocs/24594.pdf">[System Instructions]</a><br>
+<p>The final method looks something like this. I also recommend reading some of the resources below if my explanation was unclear at any point. Paging is not guaranteed to behave the same across platforms and systems. You should remember that virtual memory is mapped to physical memory, but also to disk. Control register 0 determines processor capabilities. Paging is enabled if the 31st bit is set to 1. Similarly, control register 4 determines paging attributes. Bit 5 of cr4 tells us if physical address extension is enabled, allowing 64-bit addressing. Bits 31 of cr0 and 5 of cr4 are both set to 1 on a default x64 install.</p>
 <pre><p>[[ nodiscard ]]
 const std::ptrdiff_t to_phys(
    const std::ptrdiff_t process,
