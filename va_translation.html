@@ -482,7 +482,9 @@ if ( !cr3 )
 };</p></pre>
 <p>Finally, we examine the page size bit. If the page size bit is garbage, the page table entry references a lesser page table. We read it, mask bits from our va and return.</p>
 
-
+<pre class="lineno" aria-hidden="true">1
+2
+3</pre>
 <pre><p>if ( data[ 1 ] &amp; 0x80 ) return ( data[ 1 ] &amp; 0xfffffc0000000 ) + ( addr &amp; 0x3fffffffll );
 if ( data[ 2 ] &amp; 0x80 ) return ( data[ 2 ] &amp; 0x0000ffffff000 ) + ( addr &amp; 0x001fffffll );
 return ( data[ 3 ] &amp; 0x0000ffffff000 ) + page[ ofs ];</p></pre>
