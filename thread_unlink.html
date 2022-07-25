@@ -344,23 +344,40 @@
       }
     </style>
   </head>
-  <video autoplay muted loop id="background_video">
+  <video autoplay="" muted="" loop="" id="background_video">
     <source src="red velvet.mp4" type="video/mp4">
   </video>
-  <body>
+  
     <a href="/" class="home" alt="home" aria-label="blog home">
       <img src="https://avatars.githubusercontent.com/u/30310224" width="128" height="128">
     </a>
-    <article itemscope itemtype="http://schema.org/BlogPosting" aria-label="Content">
+    <article itemscope="" itemtype="http://schema.org/BlogPosting" aria-label="Content">
       <h1 itemprop="name headline">Sneaky Sneaky System Thread Shenanigans</h1>
-      <time datetime="2022-06-17T00:00:00+00:00" itemprop="datePublished"> July 17, 2022</time>
+      <time datetime="2022-06-17T00:00:00+00:00" itemprop="datePublished"> June 17, 2022</time>
       <main itemprop="articleBody">
       <p>Anti-cheat solutions to prevent the user from running unsigned code in the kernel is not uncommon. The goal of freedom is to run what you want, exactly where you want. I fundamentally disagree with software that tries to limit the extent to which you can exercise freedoms on the machine you own.</p>
       <p>However, most solutions are not run at system startup. It is far more difficult to load unsigned code into the kernel while an anti-cheat solution is running. We can simply load prior to running the anti-cheat, but even so there are things that need to be taken care of lest we expose ourselves. In this post, I will talk about kernel tricks with regards to BattlEye and EasyAntiCheat, and how we can effectively circumvent some levels of detection.</p>
       <p>When we want to run unsigned code in the kernel, we write our code bytes to some buffer and then run a thread across the buffer. Memory allocation can be made via memory descriptor lists, pools or found as discarded sections. I discuss these quite extensively in another post.</p>
       <p>System threads are created by system export PsCreateSystemThread, which is a wrapped call to PsCreateSystemThreadEx. PsCreateSystemThreadEx first examines the interrupt request level of the calling thread, then calls internal function PspCreateThread. PspCreateThread verifies that the process is ready to receive another thread, acquires rundown protection and maps thread creation flags. It then calls PspAllocateThread. PspAllocateThread selects the ideal processor, does some schedulilng garbage, initialises the thread object, locks it, sets up user stack, creates the thread environment block and runs KeInitThread on the newly created thread object.</p>
       <p>In PspAllocateThread, the kernel allocates the necessary memory and creates a handle to the thread object. The handle is mirrored to an internal handle table PspCidTable which stores handles to created threads and processes. The table can be queried and walked, exposing the handle to our thread object. This is a problem for a couple of reasons. If an anti-cheat gains access to our thread object, represented in the kernel by an ETHREAD and, subsequently, a KTHREAD struct, the execution context of our thread is exposed and our code is found. The address to the PspCidTable is not exported, but it is referenced by PsLookupThreadByThreadId which is.</p>
-<pre><p>auto lookup_thread{ ptr< std::uint8_t* >( nt::export( "PsLookupThreadByThreadId" ) ) };
+<pre class="lineno" aria-hidden="true">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17</pre>
+<pre><p>auto lookup_thread{ ptr&lt; std::uint8_t* &gt;( nt::export( "PsLookupThreadByThreadId" ) ) };
 if ( !lookup_thread )
    return 0;
 
@@ -376,9 +393,42 @@ while ( lookup_thread[ 4 ] != 0xf7
      || lookup_thread[ 7 ] != 0x03 )
    lookup_thread++;
 
-return *ptr< std::int32_t* >( lookup_thread ) + lookup_thread + 4;</p></pre>
+return *ptr&lt; std::int32_t* &gt;( lookup_thread ) + lookup_thread + 4;</p></pre>
       <p>We first move to the address of the export, then walk the .text to find our signature and resolve its virtual address. (((Microsoft))) provides a couple of APIs to deal with the handle table. They are ExpLookupHandleTableEntry and ExDestroyHandle. To clear the handle to our thread object from the handle table, we first query it with ExpLookupHandleTableEntry and kill it with ExDestroyHandle. Neither are exported. ExDestroyHandle is referenced by RtlpInsertStringAtom, which is again referenced by RtlAddAtomToAtomTableEx.</p>
-<pre><p>auto atom_table{ ptr< std::uint8_t* >( nt::export( "RtlAddAtomToAtomTableEx" ) ) };
+<pre class="lineno" aria-hidden="true">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33</pre>
+<pre><p>auto atom_table{ ptr&lt; std::uint8_t* &gt;( nt::export( "RtlAddAtomToAtomTableEx" ) ) };
 if ( !atom_table )
    return 0;
 
@@ -394,7 +444,7 @@ while ( atom_table[ 4 ] != 0x84
      || atom_table[ 7 ] != 0x62 )
    atom_table++;
 
-auto insert_string{ *ptr< std::int32_t* >( atom_table ) + atom_table + 4 };
+auto insert_string{ *ptr&lt; std::int32_t* &gt;( atom_table ) + atom_table + 4 };
 if ( !insert_string )
    return 0;
 
@@ -410,9 +460,26 @@ while ( insert_string [ 4 ] != 0x65
      || insert_string [ 7 ] != 0x0c )
    insert_string++;
 
-return *ptr< std::int32_t* >( insert_string ) + insert_string + 4;</p></pre>
+return *ptr&lt; std::int32_t* &gt;( insert_string ) + insert_string + 4;</p></pre>
       <p>ExDestroyHandle takes as arguments the handle table, the thread id and handle table entry. It then references the handle table object by thread id and handle table entry, then deallocates it and unsets the object pointer bits. ExpLookupHandleTableEntry takes as arguments the handle table and thread id for the thread object we wish to query. Though the function is not exported, but PsLookupThreadByThreadId references it.</p>
-<pre><p>auto lookup_thread{ ptr< std::uint8_t* >( nt::export( "PsLookupThreadByThreadId" ) ) };
+<pre class="lineno" aria-hidden="true">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17</pre>
+<pre><p>auto lookup_thread{ ptr&lt; std::uint8_t* &gt;( nt::export( "PsLookupThreadByThreadId" ) ) };
 if ( !lookup_thread )
    return 0;
 
@@ -428,8 +495,30 @@ while ( lookup_thread[ 4 ] != 0x4c
      || lookup_thread[ 7 ] != 0x48 )
    lookup_thread++;
 
-return *ptr< std::int32_t* >( lookup_thread ) + lookup_thread + 4;</p></pre>
+return *ptr&lt; std::int32_t* &gt;( lookup_thread ) + lookup_thread + 4;</p></pre>
 <p>Now that we know the addresses of all necessary calls and tables, we can remove the handle to our thread object. We call it once on thread startup.</p>
+<pre class="lineno" aria-hidden="true">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22</pre>
 <pre><p>const std::ptrdiff_t data[ ] = {
    get_cur_cid_entry( ),
    get_cur_thread_id( ),
@@ -447,24 +536,43 @@ if ( !data[ ctx ]
   || !data[ cid ] )
    return 0;
 
-ptr< std::ptrdiff_t( __stdcall* )(
+ptr&lt; std::ptrdiff_t( __stdcall* )(
    const std::ptrdiff_t cid_table,
    const std::ptrdiff_t thread_id,
    const std::ptrdiff_t cid_entry
-) >( get_destroy_handle_addr( ) )( data[ cid ], data[ tid ], data[ ctx ] );</p></pre>
+) &gt;( get_destroy_handle_addr( ) )( data[ cid ], data[ tid ], data[ ctx ] );</p></pre>
 <p>Our thread object is no longer accessible via the internal kernel handle table. Anti-cheats can still query our thread from the kernel process thread list. Processes are represented in the kernel by EPROCESS and KPROCESS structs. The two share base address. Both EPROCESS and KPROCESS have ThreadListHead fields. This field serves as the head of the thread list, and is of type LIST_ENTRY. In the NT kernel, LIST_ENTRY represents an element in a doubly linked list. We should unlink from both of these. The EPROCESS thread list holds pointers to the ThreadListEntry field in the ETHREAD struct. Similarly, the KPROCESS thread list holds pointers to the ThreadListEntry field in the KTHREAD struct.</p>
-<pre><p>const auto unlink_list = [ & ](
+<pre class="lineno" aria-hidden="true">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19</pre>
+<pre><p>const auto unlink_list = [ &amp; ](
    const std::ptrdiff_t entry
 ) {
-   auto ctx{ ptr< entry_t* >( entry ) };
+   auto ctx{ ptr&lt; entry_t* &gt;( entry ) };
    if ( !ctx )
       return 0;
          
-   ctx->m_next->m_prev = ctx->m_prev;
-   ctx->m_prev->m_next = ctx->m_next;
+   ctx-&gt;m_next-&gt;m_prev = ctx-&gt;m_prev;
+   ctx-&gt;m_prev-&gt;m_next = ctx-&gt;m_next;
       
-   ctx->m_next = ctx;
-   ctx->m_prev = ctx;
+   ctx-&gt;m_next = ctx;
+   ctx-&gt;m_prev = ctx;
 
    return 1;
 };
@@ -477,5 +585,6 @@ if ( !unlink_list( thread + nt::sym( L"KTHREAD", L"ThreadListEntry" ) )
 </main>
       <a href="/" class="back small mono">BACK TO HOME</a>
     </article>
+
   </body>
 </html>
