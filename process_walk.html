@@ -357,7 +357,7 @@
       <main itemprop="articleBody">
         <p>Processes in the NT kernel are represented by an EPROCESS object. The EPROCESS inherits a KPROCESS. They can be viewed via public symbols. Regardless of what your goal might be, operating on the EPROCESS and KPROCESS object grants access to information like directory table base, image file name, process id, thread list, VAD tree, etc.</p>
 	<p>There are many ways to acquire an EPROCESS pointer by file name or process id. In this post I will cover some methods, their limitations, and what the more correct approach is.</p>
-        <p>The kernel exports PsInitialSystemProcess which hols a pointer to the EPROCESS instance of the system process. The EPROCESS struct holds a couple of fields that can be used to walk linked processes from the initial system process.</p>
+        <p>The kernel exports PsInitialSystemProcess which holds a pointer to the EPROCESS instance of the system process. The EPROCESS struct holds a couple of fields that can be used to walk linked processes from the initial system process.</p>
 <pre><p>(1) ActiveProcessLinks
 (2) MmProcessLinks
 (3) SessionProcessLinks
