@@ -448,7 +448,7 @@ enum id_t : std::uint8_t {
    ofs      // page offset
 };</pre><p></p>
 <p>It was previously mentioned that the kernel export MmGetPhysicalAddress retrieved the DirectoryTableBase from the KPROCESS struct of the desired process whose address space we wished to operate on. Control registers are processor registers which control the behaviour of the CPU.</p>
-<p>In NT, the third control register holds the directory table base for the process of the executing thread to retrieve the base address of the page directory pointer table. We will have to read the register via intrinsic or virtual memory. Reading the intrinsic is only fruitful if we share the corresponding address space. We must first retreive the pointer to the EPROCESS structure of the desired process. This is covered in a separate post.</p>
+<p>In NT, the third control register holds the directory table base for the process of the executing thread to retrieve the base address of the page directory pointer table. We will have to read the register via intrinsic or virtual memory. Reading the intrinsic is only fruitful if we share the corresponding address space. We must first retrieve the pointer to the EPROCESS structure of the desired process. This is covered in a separate post.</p>
 <p></p><pre class="lineno" aria-hidden="true">1
 2
 3
@@ -480,7 +480,7 @@ if ( !cr3 )
    read&lt; phys, std::ptrdiff_t &gt;( ( data[ 1 ] &amp; 0xffffff000 ) + 8 * page[ tab_ptr ] ),
    read&lt; phys, std::ptrdiff_t &gt;( ( data[ 2 ] &amp; 0xffffff000 ) + 8 * page[ tab ] )
 };</p></pre>
-<p>Finally, we examine the page size bit. If the page size bit is garbage, the page table entry references a lesser page table. We read it, mask bits from our va and return.</p>
+<p>Finally, we examine the page size bit. If the page size bit is garbage, the page table entry references a lesser page table. We read it, mask bits from our virtual address and return.</p>
 
 <pre class="lineno" aria-hidden="true">1
 2
