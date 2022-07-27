@@ -402,12 +402,12 @@
 const std::ptrdiff_t process_by_name(
    const std::wstring_t process
 ) {
-   auto ctx{ nt::export( L"PsInitialSystemProcess" ) };
+   auto ctx{ n_nt::export( L"PsInitialSystemProcess" ) };
    if ( !ctx )
       return 0;
 
-   static auto list{ nt::sym( L"EPROCESS", L"MmProcessLinks" ) };
-   static auto name{ nt::sym( L"EPROCESS", L"SeAuditProcessCreationInfo" ) };
+   static auto list{ n_nt::sym( L"EPROCESS", L"MmProcessLinks" ) };
+   static auto name{ n_nt::sym( L"EPROCESS", L"SeAuditProcessCreationInfo" ) };
 
    while ( ctx = *ptr< std::ptrdiff_t* >( ctx + list ) - list, ctx ) {
 
