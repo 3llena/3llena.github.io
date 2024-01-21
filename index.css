@@ -2321,7 +2321,11 @@ body.hiscores .uc-entry-box__input {
     padding: 11px;
     text-align: center;
     vertical-align: top;
-    width: 130px
+    width: 130px;
+    background-size: 90px 90px;
+    position: absolute;
+    top: 100px;
+    left: 100px;
 }
 
 .home-button--noworld {
@@ -2340,11 +2344,11 @@ body.hiscores .uc-entry-box__input {
     color: white;
     display: block;
     font-size: 1.7em;
-    margin: 3px 0
+    margin: 3px 0;
 }
 
 .home-button__new-user {
-    margin-top: 30px
+    margin-top: 43px;
 }
 
 .home-button__world {
