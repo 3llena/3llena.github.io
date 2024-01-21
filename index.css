@@ -185,7 +185,7 @@ a:hover {
 .banner {
     background: url('content/title.png') no-repeat center;
     display: block;
-    margin-bottom: 25px;
+    margin-bottom: 10px;
     min-height: 135px;
     text-align: center;
     width: auto;
