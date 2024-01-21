@@ -175,7 +175,7 @@ a:hover {
 }
 
 .page-wrap {
-    background: url('https://www.runescape.com/img/rsp777/bg2.jpg') repeat-y center top;
+    background: url('content/bg.gif') repeat-y center top;
     margin: 0 auto;
     overflow-y: hidden;
     padding: 0 50px;
@@ -183,7 +183,7 @@ a:hover {
 }
 
 .banner {
-    background: url('https://raw.githubusercontent.com/3llena/3llena.github.io/main/content/title.png') no-repeat center;
+    background: url('content/title.png') no-repeat center;
     display: block;
     margin-bottom: 25px;
     min-height: 135px;
