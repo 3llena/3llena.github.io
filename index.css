@@ -7,7 +7,9 @@
         outline: 1px solid #90c040
     }
 }
-
+::-webkit-scrollbar {
+    display: none;
+}
 *{
     cursor: url('content/sc2cursor.png'),auto;
 }
