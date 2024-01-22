@@ -9,7 +9,29 @@
 }
 
 *{
-    cursor: url('content/cursor.png'),auto;
+    cursor: url('content/sc2cursor.png'),auto;
+}
+
+button {
+    background: url(content/button_gold.png) center center;
+    margin: 0 auto;
+    overflow-y: hidden;
+    width: 230px;
+    height:58px;
+    border:none;
+    text-align:center;
+    color: rgb(255,255,255);
+    font-weight:bolder;
+    font-family: monospace;
+    font-kerning: none;
+}
+
+button:hover {
+    filter:brightness(1.2);
+}
+
+button:active {
+    filter:brightness(0.9);
 }
 
 
